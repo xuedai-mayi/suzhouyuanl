@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>姑苏苏州 · 天地图全要素控制</title>
+    <style>
+        /* ========= 基础样式 ========= */
+        html,body{margin:0;padding:0;background:#0a192f;height:100%;overflow:hidden}
+        #map3d{width:100%;height:100vh}
+        @font-face{
+            font-family:'FZXKK';
+            src:url('./FZXKK.TTF') format('truetype');
+            font-weight:400;
+            font-style:normal;
+        }
+        .corner-btn{
+            position:absolute;top:12px;left:12px;z-index:1200;
+            padding:10px 16px;font-size:14px;font-weight:600;
+            font-family:"STKaiti","KaiTi","Songti SC","SimSun","BiauKai",serif;
+            color:#0a192f;background:linear-gradient(135deg,#f5e7c6,#e0cba7);
+            border:1px solid #cfa969;border-radius:999px;
+            box-shadow:0 8px 20px rgba(0,0,0,.3);cursor:pointer;
+            transition:transform .2s ease, box-shadow .2s ease, filter .2s ease;
+        }
+        .corner-btn:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(0,0,0,.4);filter:brightness(1.05)}
+        .corner-btn:active{transform:translateY(0);box-shadow:0 8px 20px rgba(0,0,0,.3)}
+        /* ========= 开场视图 ========= */
+        .intro{
+            position:fixed;inset:0;z-index:9999;overflow:hidden;
+            display:flex;align-items:center;justify-content:center;flex-direction:column;
+            background:#000;transition:opacity .8s ease;
+        }
+        .intro video{width:120%;height:120%;object-fit:cover;position:absolute;inset:0}
+        .intro-title{
+            position:relative;z-index:1;color:#fdf6e3;text-align:center;
+            font-size:48px;font-weight:700;letter-spacing:6px;line-height:1;
+            font-family:'FZXKK',"STKaiti","KaiTi","Songti SC","SimSun","BiauKai",serif;
+            text-shadow:0 4px 18px rgba(0,0,0,.35);
+        }
+        .intro-actions{
+            position:relative;z-index:1;margin-top:80px;display:flex;flex-direction:column;gap:10px;
+        }
+        .intro-btn{
+            padding:12px 28px;font-size:16px;font-weight:600;
+            font-family:"STKaiti","KaiTi","Songti SC","SimSun","BiauKai",serif;
+            color:#3a2613;background:linear-gradient(135deg,#f5e7c6,#e0cba7);
+            border:1px solid #cfa969;border-radius:999px;
+            box-shadow:0 10px 28px rgba(0,0,0,.35);cursor:pointer;
+            transition:transform .2s ease, box-shadow .2s ease, filter .2s ease;
+        }
+        .intro-btn:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(0,0,0,.45);filter:brightness(1.05)}
+        .intro-btn:active{transform:translateY(0);box-shadow:0 8px 22px rgba(0,0,0,.35)}
+        .intro.hide{opacity:0;pointer-events:none}
+        /* ========= 3D 地图容器 ========= */
+        .map3d-wrapper{
+            position:fixed;inset:0;z-index:8000;display:none;background:#000;
+        }
+        #map3d{width:100%;height:100%;}
+        .label-3d{
+            padding:10px 16px;color:#111;
+            font-family:'FZXKK',"STKaiti","KaiTi","Songti SC","SimSun","BiauKai",serif;
+            font-size:26px;letter-spacing:5px;
+            background:rgba(0,0,0,0);border:none;border-radius:14px;
+            text-shadow:0 6px 14px rgba(0,0,0,.35),0 0 12px rgba(0,0,0,.25);
+            filter:drop-shadow(0 12px 24px rgba(0,0,0,.22));
+        }
+        .label-3d-vertical{
+            writing-mode:vertical-rl;
+            text-orientation:upright;
+            letter-spacing:2px;
+            padding:6px 8px;
+            animation:floaty 2.8s ease-in-out infinite alternate;
+        }
+        @keyframes floaty{
+            from{transform:translateY(0)}
+            to{transform:translateY(-8px)}
+        }
+        .video-overlay{
+            position:fixed;
+            inset:0;
+            background:radial-gradient(ellipse at center, rgba(0,0,0,.85) 0%, rgba(0,0,0,.95) 55%, rgba(0,0,0,.98) 100%);
+            backdrop-filter:blur(8px);
+            display:none;
+            align-items:center;
+            justify-content:center;
+            z-index:14000;
+            opacity:0;
+            transition:opacity .35s ease;
+        }
+        .video-overlay.visible{opacity:1}
+        .video-frame{
+            position:relative;
+            width:min(90vw,1280px);
+            aspect-ratio:16/9;
+            box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 60px rgba(245,231,198,.12);
+            border:1px solid rgba(245,231,198,.25);
+            overflow:hidden;
+            border-radius:18px;
+            animation:popIn .4s ease;
+        }
+        .video-frame video{
+            position:absolute;
+            inset:0;
+            width:100%;
+            height:100%;
+            object-fit:cover;
+            background:#000;
+        }
+        .video-close{
+            position:absolute;
+            top:10px;
+            right:10px;
+            width:34px;
+            height:34px;
+            border:none;
+            border-radius:50%;
+            background:rgba(0,0,0,.55);
+            color:#fdf6e3;
+            font-size:18px;
+            cursor:pointer;
+            backdrop-filter:blur(6px);
+            transition:transform .2s ease, background .2s ease;
+        }
+        .video-close:hover{transform:scale(1.05);background:rgba(0,0,0,.7)}
+        .video-close:active{transform:scale(.98)}
+        @keyframes popIn{
+            from{transform:scale(.92);opacity:.6}
+            to{transform:scale(1);opacity:1}
+        }
+        .video-popup .leaflet-popup-content-wrapper{
+            background:rgba(0,0,0,.78);
+            border:1px solid rgba(245,231,198,.25);
+            box-shadow:0 12px 30px rgba(0,0,0,.45);
+            border-radius:12px;
+            padding:6px;
+        }
+        .video-popup .leaflet-popup-content{
+            margin:0;
+        }
+        .video-popup video{
+            display:block;
+            width:280px;
+            height:170px;
+            border-radius:10px;
+            object-fit:cover;
+            background:#000;
+        }
+        .video-popup .leaflet-popup-tip{
+            background:rgba(0,0,0,.78);
+            border:1px solid rgba(245,231,198,.25);
+        }
+    </style>
+</head>
+<body>
+<!-- ====================== 开场视图 ====================== -->
+<div class="intro" id="intro">
+    <video id="introVideo" src="kaitou.mp4" autoplay muted playsinline></video>
+    <div class="intro-title">大美苏州 园林地图</div>
+    <div class="intro-actions">
+        <button class="intro-btn" id="enter3DBtn">进入 3D 地图</button>
+    </div>
+</div>
+<!-- ====================== 3D 容器 ====================== -->
+<div class="map3d-wrapper" id="map3dWrapper">
+    <div id="map3d"></div>
+</div>
+<!-- ====================== 沉浸式视频弹窗 ====================== -->
+<div class="video-overlay" id="videoOverlay">
+    <div class="video-frame">
+        <button class="video-close" id="videoCloseBtn">&times;</button>
+        <video id="overlayVideo" controls playsinline webkit-playsinline preload="auto"></video>
+    </div>
+ </div>
+<script src="//webapi.amap.com/maps?v=2.0&key=1c942a20d23a85094eb83f68a4c70a58&plugin=AMap.ControlBar,AMap.ToolBar"></script>
+<script>
+const videoOverlay = document.getElementById('videoOverlay');
+const overlayVideo = document.getElementById('overlayVideo');
+const videoCloseBtn = document.getElementById('videoCloseBtn');
+let activeVideoPopup = null;
+function closeVideoOverlay(){
+    if (!videoOverlay) return;
+    videoOverlay.classList.remove('visible');
+    setTimeout(()=>{
+        videoOverlay.style.display = 'none';
+        if (overlayVideo){
+            overlayVideo.pause();
+            overlayVideo.removeAttribute('src');
+            overlayVideo.load();
+            overlayVideo.style.visibility = 'hidden';
+        }
+    },200);
+}
+function showImmersiveVideo(src){
+    if (!videoOverlay || !overlayVideo) return;
+    const videoUrl = src && src.startsWith('http') ? src : new URL(src, location.href).href;
+    overlayVideo.pause();
+    overlayVideo.removeAttribute('src');
+    overlayVideo.load();
+    overlayVideo.muted = false;
+    overlayVideo.volume = 1;
+    overlayVideo.playsInline = true;
+    overlayVideo.webkitPlaysInline = true;
+    overlayVideo.autoplay = true;
+    while (overlayVideo.firstChild) overlayVideo.removeChild(overlayVideo.firstChild);
+    const sourceEl = document.createElement('source');
+    sourceEl.src = videoUrl;
+    sourceEl.type = 'video/mp4';
+    overlayVideo.appendChild(sourceEl);
+    overlayVideo.load();
+    overlayVideo.currentTime = 0;
+    overlayVideo.style.visibility = 'visible';
+    videoOverlay.style.display = 'flex';
+    videoOverlay.classList.add('visible');
+    const tryPlay = ()=>{
+        const p = overlayVideo.play();
+        if (p && p.catch) p.catch(()=>{ setTimeout(()=>overlayVideo.play().catch(()=>{}),150); });
+    };
+    overlayVideo.onloadeddata = ()=>{overlayVideo.onloadeddata=null; tryPlay();};
+    tryPlay();
+    const fallbackOpen = ()=>{
+        if (overlayVideo.paused || overlayVideo.readyState < 2){
+            window.open(videoUrl,'_blank');
+        }
+    };
+    overlayVideo.onerror = fallbackOpen;
+    setTimeout(fallbackOpen, 2500);
+}
+function showVideoPopup(coords, src){
+    if (!src) return;
+    const videoUrl = src && src.startsWith('http') ? src : new URL(src, location.href).href;
+    // 仅保留接口，未使用 Leaflet 弹窗
+    if (videoUrl && coords){ window.open(videoUrl,'_blank'); }
+}
+if (videoOverlay){
+    videoOverlay.addEventListener('click',e=>{
+        if (e.target === videoOverlay) closeVideoOverlay();
+    });
+}
+if (videoCloseBtn) videoCloseBtn.addEventListener('click', closeVideoOverlay);
+document.addEventListener('keydown',e=>{
+    if (e.key == 'Escape') closeVideoOverlay();
+});
+
+/* ====================== 3. 3D 地图初始化 ====================== */
+let map3d;
+function init3DMap(){
+    if (map3d) return;
+    const zzyPos = [120.629211,31.324194];
+    map3d = new AMap.Map('map3d', {
+        rotateEnable:true,
+        pitchEnable:true,
+        zoom:16,
+        pitch:55,
+        rotation:-15,
+        viewMode:'3D',
+        zooms:[2,20],
+        center:zzyPos
+    });
+    const controlBar = new AMap.ControlBar({position:{right:'10px',top:'10px'}});
+    controlBar.addTo(map3d);
+    const toolBar = new AMap.ToolBar({position:{right:'40px',top:'110px'}});
+    toolBar.addTo(map3d);
+    const zzyMarker = new AMap.Marker({
+        position:zzyPos,
+        anchor:'center',
+        offset:new AMap.Pixel(0,-10),
+        content:'<div class="label-3d label-3d-vertical">拙政园</div>',
+        zooms:[2,20]
+    });
+    const zzyLink = 'https://mallwap.szylly.com/vr/ZZYVR/Panorama/pano/tour_fly.html';
+    zzyMarker.on('click',()=>{
+        const zooms = map3d.getZooms ? map3d.getZooms() : [16,20];
+        const targetZoom = Array.isArray(zooms) ? zooms[1] || 18 : 18;
+        let opened = false;
+        const openLink = ()=>{
+            if (opened) return;
+            opened = true;
+            if (map3d.off){
+                map3d.off('zoomend', handleZoom);
+                map3d.off('moveend', handleZoom);
+            }
+            window.open(zzyLink,'_blank');
+        };
+        const handleZoom = ()=>{
+            const z = map3d.getZoom ? map3d.getZoom() : targetZoom;
+            if (z >= targetZoom){
+                openLink();
+            }
+        };
+        map3d.on('zoomend', handleZoom);
+        map3d.on('moveend', handleZoom);
+        map3d.setZoomAndCenter(targetZoom, zzyPos);
+        setTimeout(openLink, 2000);
+    });
+    const szlPos = [120.629095,31.321068];
+    const szlLink = 'https://www.720yun.com/t/61akulrmz29?scene_id=126445998';
+    const szlMarker = new AMap.Marker({
+        position:szlPos,
+        anchor:'center',
+        offset:new AMap.Pixel(0,-10),
+        content:'<div class="label-3d label-3d-vertical">狮子林</div>',
+        zooms:[2,20]
+    });
+    szlMarker.on('click',()=>{
+        const zooms = map3d.getZooms ? map3d.getZooms() : [16,20];
+        const targetZoom = Array.isArray(zooms) ? zooms[1] || 18 : 18;
+        let opened = false;
+        const openLink = ()=>{
+            if (opened) return;
+            opened = true;
+            if (map3d.off){
+                map3d.off('zoomend', handleZoom);
+                map3d.off('moveend', handleZoom);
+            }
+            if (szlLink) window.open(szlLink,'_blank');
+        };
+        const handleZoom = ()=>{
+            const z = map3d.getZoom ? map3d.getZoom() : targetZoom;
+            if (z >= targetZoom){
+                openLink();
+            }
+        };
+        map3d.on('zoomend', handleZoom);
+        map3d.on('moveend', handleZoom);
+        map3d.setZoomAndCenter(targetZoom, szlPos);
+        setTimeout(openLink, 2000);
+    });
+    szlMarker.setMap(map3d);
+    const pjlPos = [120.634556,31.313969];
+    const pjlLink = 'https://www.720yun.com/t/f9vks7q971l?scene_id=47496726';
+    const pjlMarker = new AMap.Marker({
+        position:pjlPos,
+        anchor:'center',
+        offset:new AMap.Pixel(0,-10),
+        content:'<div class="label-3d label-3d-vertical">平江路</div>',
+        zooms:[2,20]
+    });
+    pjlMarker.on('click',()=>{
+        const zooms = map3d.getZooms ? map3d.getZooms() : [16,20];
+        const targetZoom = Array.isArray(zooms) ? zooms[1] || 18 : 18;
+        let opened = false;
+        const openLink = ()=>{
+            if (opened) return;
+            opened = true;
+            if (map3d.off){
+                map3d.off('zoomend', handleZoom);
+                map3d.off('moveend', handleZoom);
+            }
+            if (pjlLink) window.open(pjlLink,'_blank');
+        };
+        const handleZoom = ()=>{
+            const z = map3d.getZoom ? map3d.getZoom() : targetZoom;
+            if (z >= targetZoom){
+                openLink();
+            }
+        };
+        map3d.on('zoomend', handleZoom);
+        map3d.on('moveend', handleZoom);
+        map3d.setZoomAndCenter(targetZoom, pjlPos);
+        setTimeout(openLink, 2000);
+    });
+    pjlMarker.setMap(map3d);
+    const lyPos = [120.59226,31.315369];
+    const lyLink = 'https://919vr.cn/hcvr/259/';
+    const lyMarker = new AMap.Marker({
+        position:lyPos,
+        anchor:'center',
+        offset:new AMap.Pixel(0,-10),
+        content:'<div class="label-3d label-3d-vertical">留园</div>',
+        zooms:[2,20]
+    });
+    lyMarker.on('click',()=>{
+        const zooms = map3d.getZooms ? map3d.getZooms() : [16,20];
+        const targetZoom = Array.isArray(zooms) ? zooms[1] || 18 : 18;
+        let opened = false;
+        const openLink = ()=>{
+            if (opened) return;
+            opened = true;
+            if (map3d.off){
+                map3d.off('zoomend', handleZoom);
+                map3d.off('moveend', handleZoom);
+            }
+            if (lyLink) window.open(lyLink,'_blank');
+        };
+        const handleZoom = ()=>{
+            const z = map3d.getZoom ? map3d.getZoom() : targetZoom;
+            if (z >= targetZoom){
+                openLink();
+            }
+        };
+        map3d.on('zoomend', handleZoom);
+        map3d.on('moveend', handleZoom);
+        map3d.setZoomAndCenter(targetZoom, lyPos);
+        setTimeout(openLink, 2000);
+    });
+    lyMarker.setMap(map3d);
+    zzyMarker.setMap(map3d);
+}
+/* ====================== 视图切换控制 ====================== */
+const intro = document.getElementById('intro');
+const introVideo = document.getElementById('introVideo');
+const enter3DBtn = document.getElementById('enter3DBtn');
+const map3dWrapper = document.getElementById('map3dWrapper');
+let hasStarted = false;
+const fallbackTimer = setTimeout(()=>{ if(!hasStarted) start3D(); },20000);
+function hideIntroOnce(){
+    if (intro && !intro.classList.contains('hide')){
+        intro.classList.add('hide');
+        setTimeout(()=>intro.remove(),800);
+    }
+}
+function markStarted(){
+    if (!hasStarted){
+        hasStarted = true;
+        clearTimeout(fallbackTimer);
+        introVideo.removeEventListener('ended', start3D);
+        introVideo.removeEventListener('error', start3D);
+    }
+}
+function show3D(){
+    map3dWrapper.style.display = 'block';
+}
+const start3D = ()=>{
+    markStarted();
+    hideIntroOnce();
+    show3D();
+    init3DMap();
+};
+introVideo.addEventListener('ended', start3D);
+introVideo.addEventListener('error', start3D);
+enter3DBtn.addEventListener('click', start3D);
+</script>
+</body>
+</html>
